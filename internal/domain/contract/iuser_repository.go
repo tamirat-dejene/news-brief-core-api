@@ -19,4 +19,10 @@ type IUserRepository interface {
 	UpdateUserPassword(ctx context.Context, id string, hashedPassword string) error
 	// DeleteUser removes a user by ID.
 	DeleteUser(ctx context.Context, id string) error
+	// AddSubscription adds a source key to a user's list of subscriptions.
+	AddSubscription(ctx context.Context, userID string, sourceKey string) error
+	// RemoveSubscription removes a source key from a user's list of subscriptions.
+	RemoveSubscription(ctx context.Context, userID string, sourceKey string) error
+	// GetSubscriptions retrieves the list of subscribed source keys for a user.
+	GetSubscriptions(ctx context.Context, userID string) ([]string, error)
 }

@@ -8,6 +8,7 @@ import (
 
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/entity"
+	"github.com/RealEskalate/G6-NewsBrief/internal/handler/http/dto"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -647,4 +648,37 @@ func (uc *UserUsecase) GetUserByID(ctx context.Context, userID string) (*entity.
 	}
 
 	return user, nil
+}
+
+// UpdatePreferences handles partial updates to a user's preferences object.
+func (uc *UserUsecase) UpdatePreferences(ctx context.Context, userID string, req dto.UpdatePreferencesRequest) (*entity.Preferences, error) {
+	// 1. Fetch the user from the repository.
+	user, err := uc.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		// Error handling for user not found is already handled by GetUserByID.
+		return nil, err
+	}
+
+	// 2. Selectively update the preferences based on the request.
+	// We check if the pointers in the DTO are non-nil to allow partial updates.
+	if req.Lang != nil {
+		user.Preferences.Lang = *req.Lang
+	}
+	if req.BriefType != nil {
+		user.Preferences.BriefType = *req.BriefType
+	}
+	if req.DataSaver != nil {
+		user.Preferences.DataSaver = *req.DataSaver
+	}
+	// Note: Topic and subscription updates are handled by their dedicated usecases.
+
+	// 3. Save the updated user object back to the repository.
+	_, err = uc.userRepo.UpdateUser(ctx, user)
+	if err != nil {
+		uc.logger.Errorf("failed to update preferences for user %s: %v", userID, err)
+		return nil, errors.New("failed to update preferences")
+	}
+
+	// 4. Return the updated preferences object to be used in the handler response.
+	return &user.Preferences, nil
 }

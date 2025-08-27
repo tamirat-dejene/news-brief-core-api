@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/entity"
+	"github.com/RealEskalate/G6-NewsBrief/internal/handler/http/dto"
 )
 
 // UserUseCase defines the interface for user-related operations.
@@ -20,4 +21,5 @@ type IUserUseCase interface {
 	UpdateProfile(ctx context.Context, userID string, updates map[string]interface{}) (*entity.User, error)
 	LoginWithOAuth(ctx context.Context, firstName, lastName, email string) (string, string, error)
 	GetUserByID(ctx context.Context, userID string) (*entity.User, error)
+	UpdatePreferences(ctx context.Context, userID string, req dto.UpdatePreferencesRequest) (*entity.Preferences, error)
 }

@@ -56,3 +56,30 @@ type ResendVerificationRequest struct {
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" binding:"required"`
 }
+
+type AddSubscriptionRequest struct {
+	SourceKey string `json:"source_key" binding:"required"`
+}
+
+type ReplaceTopicsRequest struct {
+	Topics []string `json:"topics" binding:"required,dive,min=1"`
+}
+
+type UpdateTopicsRequest struct {
+	Action string   `json:"action" binding:"required,oneof=add remove"`
+	Topics []string `json:"topics" binding:"required,dive,min=1"`
+}
+
+// NotificationsRequestDTO defines the nested notifications object for preference updates.
+type NotificationsRequestDTO struct {
+	DailyBrief   *bool `json:"daily_brief"`
+	BreakingNews *bool `json:"breaking_news"`
+}
+
+// UpdatePreferencesRequest defines the body for the PATCH /v1/me/preferences endpoint.
+type UpdatePreferencesRequest struct {
+	Lang          *string                  `json:"lang"`
+	BriefType     *string                  `json:"brief_type"`
+	DataSaver     *bool                    `json:"data_saver"`
+	Notifications *NotificationsRequestDTO `json:"notifications,omitempty"`
+}

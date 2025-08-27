@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
 	"github.com/RealEskalate/G6-NewsBrief/internal/handler/http/dto"
@@ -230,4 +231,32 @@ func updateUserRequestToMap(req dto.UpdateUserRequest) map[string]interface{} {
 	}
 
 	return updates
+}
+
+// UpdatePreferences handles PATCH /v1/me/preferences
+func (h *UserHandler) UpdatePreferences(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		ErrorHandler(c, http.StatusUnauthorized, "User not authenticated")
+		return
+	}
+
+	var req dto.UpdatePreferencesRequest
+	// Use ShouldBindJSON for partial updates, as `binding:"required"` won't work well.
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ErrorHandler(c, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	updatedPrefs, err := h.userUsecase.UpdatePreferences(c.Request.Context(), userID.(string), req)
+	if err != nil {
+		ErrorHandler(c, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response := gin.H{
+		"preferences": updatedPrefs, // Assuming DTO for preferences exists
+		"updated_at":  time.Now(),
+	}
+	SuccessHandler(c, http.StatusOK, response)
 }
