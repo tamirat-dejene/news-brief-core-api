@@ -2,11 +2,10 @@ package dto
 
 // CreateUserRequest is the DTO for creating a new user.
 type CreateUserRequest struct {
-	Username  string `json:"username" binding:"required,min=3,max=32"`
-	Email     string `json:"email" binding:"required,email"`
-	Password  string `json:"password" binding:"required,min=8,max=32,containsuppercase,containslowercase,containsdigit,containssymbol"`
-	FirstName string `json:"firstname" binding:"required,min=3,max=50"`
-	LastName  string `json:"lastname" binding:"required,min=3,max=50"`
+	Username string `json:"username" binding:"required,min=3,max=32"`
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required,min=8,max=32,containsuppercase,containslowercase,containsdigit,containssymbol"`
+	Fullname string `json:"fullname" binding:"required,min=3,max=50"`
 }
 
 // LoginRequest is the DTO for user login.
@@ -20,14 +19,13 @@ type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=32"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=8,max=32"`
+	Fullname string `json:"fullname" binding:"required,min=3,max=50"`
 }
 
 // UpdateUserRequest is the DTO for updating user profile.
 type UpdateUserRequest struct {
 	Username  *string `json:"username,omitempty" binding:"omitempty,min=3,max=32"`
-	FirstName *string `json:"firstname,omitempty" binding:"omitempty,max=50"`
-	LastName  *string `json:"lastname,omitempty" binding:"omitempty,max=50"`
-	AvatarURL *string `json:"avatar_url,omitempty" binding:"omitempty,url"`
+	Fullname  *string `json:"fullname,omitempty" binding:"omitempty,max=50"`
 }
 
 // ForgotPasswordRequest is the DTO for requesting password reset.

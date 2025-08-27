@@ -10,6 +10,7 @@ import (
 type UserResponse struct {
 	ID          string         `json:"id"`
 	Username    string         `json:"username"`
+	Fullname    string         `json:"fullname"`
 	Email       string         `json:"email"`
 	Role        string         `json:"role"`
 	FirstName   *string        `json:"first_name"`
@@ -33,16 +34,10 @@ func ToUserResponse(user entity.User) UserResponse {
 		Username:  user.Username,
 		Email:     user.Email,
 		Role:      string(user.Role),
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		AvatarURL: user.AvatarURL,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 		Preferences: PreferencesDTO{
-			Lang:              user.Preferences.Lang,
 			Topics:            user.Preferences.Topics,
 			SubscribedSources: user.Preferences.SubscribedSources,
-			BriefType:         user.Preferences.BriefType,
-			DataSaver:         user.Preferences.DataSaver,
 			Notifications: NotificationsDTO{ // This assumes your entity.Preferences has this nested struct
 				DailyBrief:   user.Preferences.Notifications.DailyBrief,
 				BreakingNews: user.Preferences.Notifications.BreakingNews,
