@@ -8,5 +8,6 @@ import (
 
 // ISourceUsecase defines the business logic contract for sources.
 type ISourceUsecase interface {
+	CreateSource(ctx context.Context, source *entity.Source) error
 	GetAll(ctx context.Context) ([]entity.Source, error)
 }

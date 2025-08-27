@@ -13,25 +13,43 @@ type sourceRepository struct {
 	collection *mongo.Collection
 }
 
-func NewSourceRepository(db *mongo.Database) *sourceRepository {
+func NewSourceRepository(colln *mongo.Collection) *sourceRepository {
 	return &sourceRepository{
-		collection: db.Collection("sources"),
+		collection: colln,
 	}
 }
+func (r *sourceRepository) CreateSource(ctx context.Context, source *entity.Source) error {
+	_, err := r.collection.InsertOne(ctx, source)
 
-// Exists checks if a source with the given key exists. (Your code was perfect)
-func (r *sourceRepository) Exists(ctx context.Context, key string) (bool, error) {
-	count, err := r.collection.CountDocuments(ctx, bson.M{"key": key})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CheckSlugExists checks if a source with the given slug exists.
+func (r *sourceRepository) CheckSlugExists(ctx context.Context, slug string) (bool, error) {
+	count, err := r.collection.CountDocuments(ctx, bson.M{"slug": slug})
 	if err != nil {
 		return false, err
 	}
 	return count > 0, nil
 }
 
-// GetByKey retrieves a single source by its unique key.
-func (r *sourceRepository) GetByKey(ctx context.Context, key string) (*entity.Source, error) {
+// CheckURLExists checks if a source with the given URL exists.
+func (r *sourceRepository) CheckURLExists(ctx context.Context, url string) (bool, error) {
+	count, err := r.collection.CountDocuments(ctx, bson.M{"url": url})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// GetBySlug retrieves a single source by its unique slug.
+func (r *sourceRepository) GetBySlug(ctx context.Context, slug string) (*entity.Source, error) {
 	var source entity.Source
-	err := r.collection.FindOne(ctx, bson.M{"key": key}).Decode(&source)
+	err := r.collection.FindOne(ctx, bson.M{"slug": slug}).Decode(&source)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, errors.New("source not found")

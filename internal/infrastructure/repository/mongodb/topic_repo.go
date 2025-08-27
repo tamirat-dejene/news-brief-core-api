@@ -15,13 +15,29 @@ type topicRepository struct {
 }
 
 // NewTopicRepository creates a new MongoDB topic repository.
-func NewTopicRepository(db *mongo.Database) *topicRepository {
+func NewTopicRepository(colln *mongo.Collection) *topicRepository {
 	return &topicRepository{
-		collection: db.Collection("topics"),
+		collection: colln,
 	}
 }
 
-// GetAll retrieves all topics from the 'topics' collection. // CORRECTED COMMENT
+func (r *topicRepository) CreateTopic(ctx context.Context, topic *entity.Topic) error {
+	_, err := r.collection.InsertOne(ctx, topic)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *topicRepository) CheckSlugExists(ctx context.Context, slug string) (bool, error) {
+	count, err := r.collection.CountDocuments(ctx, bson.M{"slug": slug})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// GetAll retrieves all topics from the 'topics' collection.
 func (r *topicRepository) GetAll(ctx context.Context) ([]entity.Topic, error) {
 	var topics []entity.Topic
 

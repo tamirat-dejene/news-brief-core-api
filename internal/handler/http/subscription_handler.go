@@ -68,13 +68,13 @@ func (h *SubscriptionHandler) RemoveSubscription(c *gin.Context) {
 		return
 	}
 
-	sourceKey := c.Param("source_key")
-	if sourceKey == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "source_key is required"})
+	sourceSlug := c.Param("source_slug")
+	if sourceSlug == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "source_slug is required"})
 		return
 	}
 
-	err := h.subUsecase.Delete(c.Request.Context(), userID.(string), sourceKey)
+	err := h.subUsecase.Delete(c.Request.Context(), userID.(string), sourceSlug)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

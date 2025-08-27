@@ -62,24 +62,9 @@ type BilingualFieldDTO struct {
 	AM string `json:"am"`
 }
 
-// TopicDTO represents a single topic in the API response.
-type TopicDTO struct {
-	Key         string            `json:"key"`
-	Label       BilingualFieldDTO `json:"label"`
-	Description BilingualFieldDTO `json:"description"`
-	ImageURL    string            `json:"image_url"`
-	StoryCount  int               `json:"story_count"`
-}
-
-// TopicsResponseDTO is the response for the GET /v1/topics endpoint.
-type TopicsResponseDTO struct {
-	Topics      []TopicDTO `json:"topics"`
-	TotalTopics int        `json:"total_topics"`
-}
-
 // SubscriptionDetailDTO now matches the API spec.
 type SubscriptionDetailDTO struct {
-	SourceKey    string    `json:"source_key"`
+	SourceSlug   string    `json:"source_slug"`
 	SourceName   string    `json:"source_name"`
 	SubscribedAt time.Time `json:"subscribed_at"`
 	Topics       []string  `json:"topics"` // Per-subscription topics can be a future enhancement
@@ -104,12 +89,12 @@ type PreferencesDTO struct {
 
 // SourceDTO represents a single source in an API response.
 type SourceDTO struct {
-	Key              string   `json:"key"`
+	Slug             string   `json:"slug"`
 	Name             string   `json:"name"`
 	Description      string   `json:"description"`
 	URL              string   `json:"url"`
 	LogoURL          string   `json:"logo_url"`
-	Languages        []string `json:"languages"`
+	Languages        string   `json:"languages"`
 	Topics           []string `json:"topics"`
 	ReliabilityScore float64  `json:"reliability_score"`
 }
@@ -120,8 +105,56 @@ type SourcesResponseDTO struct {
 	TotalSources int         `json:"total_sources"`
 }
 
+// MapSourcesToDTOs converts a slice of source entities to a slice of DTOs.
+func MapSourcesToDTOs(sources []entity.Source) []SourceDTO {
+	sourceDTOs := make([]SourceDTO, len(sources))
+	for i, source := range sources {
+		sourceDTOs[i] = SourceDTO{
+			Slug:             source.Slug,
+			Name:             source.Name,
+			Description:      source.Description,
+			URL:              source.URL,
+			LogoURL:          source.LogoURL,
+			Languages:        string(source.Languages),
+			Topics:           source.Topics,
+			ReliabilityScore: source.ReliabilityScore,
+		}
+	}
+	return sourceDTOs
+}
+
 // NotificationsDTO defines the nested notifications object in API responses.
 type NotificationsDTO struct {
 	DailyBrief   bool `json:"daily_brief"`
 	BreakingNews bool `json:"breaking_news"`
+}
+
+// topics
+// TopicDTO represents a single topic in the API response.
+type TopicDTO struct {
+	Slug       string            `json:"slug"`
+	TopicName  string            `json:"topic_name"`
+	Label      BilingualFieldDTO `json:"label"`
+	StoryCount int               `json:"story_count"`
+}
+
+// TopicsResponseDTO is the response for the GET /v1/topics endpoint.
+type TopicsResponseDTO struct {
+	Topics      []TopicDTO `json:"topics"`
+	TotalTopics int        `json:"total_topics"`
+}
+
+func MapTopicsToDTOs(topics []entity.Topic) []TopicDTO {
+	topicDTOs := make([]TopicDTO, len(topics))
+	for i, topic := range topics {
+		topicDTOs[i] = TopicDTO{
+			Slug: topic.Slug,
+			Label: BilingualFieldDTO{
+				EN: topic.Label.EN,
+				AM: topic.Label.AM,
+			},
+			StoryCount: topic.StoryCount,
+		}
+	}
+	return topicDTOs
 }

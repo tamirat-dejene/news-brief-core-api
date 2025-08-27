@@ -11,12 +11,48 @@ import (
 
 type SourceHandler struct {
 	sourceUsecase contract.ISourceUsecase
+	uuidGen       contract.IUUIDGenerator
 }
 
-func NewSourceHandler(sourceUC contract.ISourceUsecase) *SourceHandler {
+func NewSourceHandler(sourceUC contract.ISourceUsecase, uuidGen contract.IUUIDGenerator) *SourceHandler {
 	return &SourceHandler{
 		sourceUsecase: sourceUC,
+		uuidGen:       uuidGen,
 	}
+}
+
+// CreateSource handles the POST /v1
+func (h *SourceHandler) CreateSource(c *gin.Context) {
+	userID, exists := c.Get("userID")
+	if !exists || userID != "admin" {
+		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "Forbidden: Admins only"})
+		return
+	}
+
+	var sourceDTO dto.SourceDTO
+	if err := c.ShouldBindJSON(&sourceDTO); err != nil {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "Invalid request payload"})
+		return
+	}
+
+	source := entity.Source{
+		ID:               h.uuidGen.NewUUID(),
+		Slug:             sourceDTO.Slug,
+		Name:             sourceDTO.Name,
+		Description:      sourceDTO.Description,
+		URL:              sourceDTO.URL,
+		LogoURL:          sourceDTO.LogoURL,
+		Languages:        entity.SetLanguageType(sourceDTO.Languages),
+		Topics:           sourceDTO.Topics,
+		ReliabilityScore: sourceDTO.ReliabilityScore,
+	}
+
+	if err := h.sourceUsecase.CreateSource(c.Request.Context(), &source); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to create source"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, dto.MessageResponse{Message: "Source created successfully"})
 }
 
 // GetSources handles the GET /v1/sources request.
@@ -28,27 +64,9 @@ func (h *SourceHandler) GetSources(c *gin.Context) {
 	}
 
 	response := dto.SourcesResponseDTO{
-		Sources:      mapSourcesToDTOs(sources),
+		Sources:      dto.MapSourcesToDTOs(sources),
 		TotalSources: len(sources),
 	}
 
 	c.JSON(http.StatusOK, response)
-}
-
-// mapSourcesToDTOs converts a slice of source entities to a slice of DTOs.
-func mapSourcesToDTOs(sources []entity.Source) []dto.SourceDTO {
-	sourceDTOs := make([]dto.SourceDTO, len(sources))
-	for i, source := range sources {
-		sourceDTOs[i] = dto.SourceDTO{
-			Key:              source.Key,
-			Name:             source.Name,
-			Description:      source.Description,
-			URL:              source.URL,
-			LogoURL:          source.LogoURL,
-			Languages:        source.Languages,
-			Topics:           source.Topics,
-			ReliabilityScore: source.ReliabilityScore,
-		}
-	}
-	return sourceDTOs
 }

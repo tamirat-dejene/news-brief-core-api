@@ -1,9 +1,6 @@
 package main
 
 import (
-	"log"
-	"os"
-
 	handlerHttp "github.com/RealEskalate/G6-NewsBrief/internal/handler/http"
 	"github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/config"
 	database "github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/database"
@@ -18,6 +15,8 @@ import (
 	"github.com/RealEskalate/G6-NewsBrief/internal/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"log"
+	"os"
 )
 
 func main() {
@@ -60,7 +59,8 @@ func main() {
 	userCollection := mongoClient.Client.Database(dbName).Collection("users")
 	userRepo := mongodb.NewMongoUserRepository(userCollection)
 	tokenRepo := mongodb.NewTokenRepository(mongoClient.Client.Database(dbName).Collection("tokens"))
-
+	topicRepo := mongodb.NewTopicRepository(mongoClient.Client.Database(dbName).Collection("topics"))
+	sourceRepo := mongodb.NewSourceRepository(mongoClient.Client.Database(dbName).Collection("sources"))
 	// Dependency Injection: Services
 	hasher := passwordservice.NewHasher()
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -80,14 +80,16 @@ func main() {
 	// Dependency Injection: Usecases
 	emailUsecase := usecase.NewEmailVerificationUseCase(tokenRepo, userRepo, mailService, randomGenerator, uuidGenerator, baseURL)
 	userUsecase := usecase.NewUserUsecase(userRepo, tokenRepo, emailUsecase, hasher, jwtService, mailService, appLogger, appConfig, appValidator, uuidGenerator, randomGenerator)
-
+	topicUsecase := usecase.NewTopicUsecase(topicRepo)
+	sourceUsecase := usecase.NewSourceUsecase(sourceRepo)
+	subscriptionUsecase := usecase.NewSubscriptionUsecase(userRepo, sourceRepo)
 	// Pass Prometheus metrics to handlers or usecases as needed (import from metrics package)
 
 	// Setup API routes
 	appRouter := handlerHttp.NewRouter(
 		userUsecase, emailUsecase,
 		userRepo, tokenRepo, hasher, jwtService, mailService,
-		appLogger, appConfig, appValidator, uuidGenerator, randomGenerator,
+		appLogger, appConfig, appValidator, uuidGenerator, randomGenerator, sourceUsecase, topicUsecase, subscriptionUsecase,
 	)
 	appRouter.SetupRoutes(router)
 

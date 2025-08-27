@@ -24,9 +24,8 @@ type RegisterRequest struct {
 
 // UpdateUserRequest is the DTO for updating user profile.
 type UpdateUserRequest struct {
-	Username  *string `json:"username,omitempty" binding:"omitempty,min=3,max=32"`
-	Fullname  *string `json:"fullname,omitempty" binding:"omitempty,max=50"`
-	AvatarURL *string `json:"avatar_url,omitempty" binding:"omitempty,url"`
+	Username *string `json:"username,omitempty" binding:"omitempty,min=3,max=32"`
+	Fullname *string `json:"fullname,omitempty" binding:"omitempty,max=50"`
 }
 
 // ForgotPasswordRequest is the DTO for requesting password reset.

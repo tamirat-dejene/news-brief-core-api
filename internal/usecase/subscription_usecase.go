@@ -26,17 +26,17 @@ func NewSubscriptionUsecase(userRepo contract.IUserRepository, sourceRepo contra
 
 // Get now uses the IUserRepository to fetch the list of subscribed source keys.
 func (uc *subscriptionUsecase) Get(ctx context.Context, userID string) (*dto.SubscriptionsResponseDTO, error) {
-	// 1. Get the list of subscribed source keys directly from the user document.
-	subscribedKeys, err := uc.userRepo.GetSubscriptions(ctx, userID)
+	// 1. Get the list of subscribed source slugs directly from the user document.
+	subscribedSlugs, err := uc.userRepo.GetSubscriptions(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	// 2. Fetch the details for each subscribed source to build the rich response.
 	// In a real implementation, you would make this more efficient by fetching all sources at once.
-	subsDTO := make([]dto.SubscriptionDetailDTO, 0, len(subscribedKeys))
-	for _, key := range subscribedKeys {
-		source, err := uc.sourceRepo.GetByKey(ctx, key) // Assumes GetByKey method exists
+	subsDTO := make([]dto.SubscriptionDetailDTO, 0, len(subscribedSlugs))
+	for _, slug := range subscribedSlugs {
+		source, err := uc.sourceRepo.GetBySlug(ctx, slug) // Assumes GetBySlug method exists
 		if err != nil || source == nil {
 			// If a source was deleted but a user is still subscribed, we can just skip it.
 			continue
@@ -45,7 +45,7 @@ func (uc *subscriptionUsecase) Get(ctx context.Context, userID string) (*dto.Sub
 		// Here you would also need to fetch the subscription creation date.
 		// For the MVP, we can omit it or use a placeholder since it's not in the user doc.
 		subsDTO = append(subsDTO, dto.SubscriptionDetailDTO{
-			SourceKey:  source.Key,
+			SourceSlug: source.Slug,
 			SourceName: source.Name,
 			// SubscribedAt: This data is no longer stored in the embedded model.
 			Topics: source.Topics,
@@ -60,9 +60,9 @@ func (uc *subscriptionUsecase) Get(ctx context.Context, userID string) (*dto.Sub
 }
 
 // Create now uses the IUserRepository to add a subscription.
-func (uc *subscriptionUsecase) Create(ctx context.Context, userID, sourceKey string) error {
+func (uc *subscriptionUsecase) Create(ctx context.Context, userID, SourceSlug string) error {
 	// 1. Check if the source exists before allowing a subscription.
-	exists, err := uc.sourceRepo.Exists(ctx, sourceKey)
+	exists, err := uc.sourceRepo.CheckSlugExists(ctx, SourceSlug)
 	if err != nil {
 		return errors.New("could not validate source")
 	}
@@ -80,10 +80,10 @@ func (uc *subscriptionUsecase) Create(ctx context.Context, userID, sourceKey str
 	}
 
 	// 3. Add the subscription directly to the user's document.
-	return uc.userRepo.AddSubscription(ctx, userID, sourceKey)
+	return uc.userRepo.AddSubscription(ctx, userID, SourceSlug)
 }
 
 // Delete now uses the IUserRepository to remove a subscription.
-func (uc *subscriptionUsecase) Delete(ctx context.Context, userID, sourceKey string) error {
-	return uc.userRepo.RemoveSubscription(ctx, userID, sourceKey)
+func (uc *subscriptionUsecase) Delete(ctx context.Context, userID, SourceSlug string) error {
+	return uc.userRepo.RemoveSubscription(ctx, userID, SourceSlug)
 }
