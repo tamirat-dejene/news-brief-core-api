@@ -693,26 +693,17 @@ Get authenticated user profile and preferences.
   "email": "user@example.com",
   "name": "John Doe",
   "email_verified": true,
-  "preferred_lang": "am",
   "created_at": "2025-08-25T10:30:00Z",
-  "last_login": "2025-08-25T10:30:00Z",
+  "last_lo-gin": "2025-08-25T10:30:00Z",
   "preferences": {
-    "lang": "am",
     "topics": ["economy", "agriculture", "politics"],
     "subscribed_sources": ["addisstandard", "ethiopianherald"],
-    "data_saver": true,
+    "send_notifications": false,
     "notifications": {
       "daily_brief": { "am": true, "pm": false }
     }
   },
-  "subscription": {
-    "plan": "free",
-    "source_limit": 5,
-    "current_subscriptions": 2
-  },
   "stats": {
-    "stories_read": 147,
-    "briefs_accessed": 23,
     "chat_queries": 8,
     "last_sync": "2025-08-25T09:15:00Z"
   }

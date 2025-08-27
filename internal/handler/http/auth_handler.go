@@ -44,7 +44,7 @@ func (h *AuthHandler) HandleGoogleLogin(ctx *gin.Context) {
 	b := make([]byte, 16)
 	rand.Read(b)
 	oauthStateString := base64.URLEncoding.EncodeToString(b)
-	ctx.SetCookie("oauthState", oauthStateString, 300, "/", "localhost", false, true)
+	ctx.SetCookie("oauthState", oauthStateString, 300, "/", "", false, true)
 
 	url := h.googleOauthConfig().AuthCodeURL(oauthStateString)
 	ctx.Redirect(http.StatusTemporaryRedirect, url)
@@ -59,7 +59,7 @@ func (h *AuthHandler) HandleGoogleCallback(ctx *gin.Context) {
 		return
 	}
 	cookieSecure := os.Getenv("OAUTH2_SET_COOKIE_SECURE")
-	ctx.SetCookie("oauthState", "", -1, "/", "", cookieSecure == "true", true) // Secure cookie == 'bool' is used to set default value
+	ctx.SetCookie("oauthState", "", -1, "/", "", cookieSecure == "true", true)
 
 	code := ctx.Query("code")
 	if code == "" {
