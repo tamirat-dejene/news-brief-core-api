@@ -494,7 +494,8 @@ func (uc *UserUsecase) UpdateProfile(ctx context.Context, userID string, updates
 	// check if the fullname is set to empty string
 	if val, ok := updates["fullname"]; ok {
 		if fullname, isString := val.(string); isString {
-				uc.logger.Warnf("User %s is attempting to set fullname to empty string", userID)
+			if len(strings.TrimSpace(fullname)) == 0 {
+				uc.logger.Warnf("User %s is attempting to set fullname to an empty string", userID)
 				return nil, errors.New("fullname cannot be empty")
 			}
 		}
