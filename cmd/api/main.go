@@ -1,6 +1,13 @@
 package main
 
 import (
+	"context"
+	"flag"
+	"log"
+	"os"
+	"time"
+
+	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
 	handlerHttp "github.com/RealEskalate/G6-NewsBrief/internal/handler/http"
 	"github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/config"
 	database "github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/database"
@@ -10,14 +17,45 @@ import (
 	passwordservice "github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/password_service"
 	randomgenerator "github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/random_generator"
 	"github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/repository/mongodb"
+	"github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/seeder"
 	"github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/uuidgen"
 	"github.com/RealEskalate/G6-NewsBrief/internal/infrastructure/validator"
 	"github.com/RealEskalate/G6-NewsBrief/internal/usecase"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
-	"log"
-	"os"
 )
+
+func adminSeeder(userUsecase contract.IUserUseCase, userRepo contract.IUserRepository) {
+	// Add a -seed flag to run seeder before starting the server
+	seed := flag.Bool("seed", true, "run database seeder and exit")
+	flag.Parse()
+
+	// Optionally allow seeding via env (useful on Render/CI)
+	seedOnStart := os.Getenv("SEED_ON_START") == "true"
+
+	if *seed || seedOnStart {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		adminEmail := os.Getenv("SEED_ADMIN_EMAIL")
+		if adminEmail == "" {
+			adminEmail = "admin@newsbrief.local"
+		}
+		adminPassword := os.Getenv("SEED_ADMIN_PASSWORD")
+		if adminPassword == "" {
+			adminPassword = "ChangeMe123!"
+		}
+
+		if err := seeder.SeedAdminUsingUC(ctx, userUsecase, userRepo, adminEmail, adminPassword); err != nil {
+			log.Fatalf("seeding failed: %v", err)
+		}
+		log.Println("seeding completed")
+		// Exit if seeding-only mode
+		if *seed {
+			return
+		}
+	}
+}
 
 func main() {
 	// Load environment variables from .env file
@@ -52,9 +90,6 @@ func main() {
 	// Register custom validators
 	validator.RegisterCustomValidators()
 
-	// Initialize Gin router
-	router := gin.Default()
-
 	// Dependency Injection: Repositories
 	userCollection := mongoClient.Client.Database(dbName).Collection("users")
 	userRepo := mongodb.NewMongoUserRepository(userCollection)
@@ -85,12 +120,20 @@ func main() {
 	subscriptionUsecase := usecase.NewSubscriptionUsecase(userRepo, sourceRepo)
 	// Pass Prometheus metrics to handlers or usecases as needed (import from metrics package)
 
+	//---------------------- Admin seeder-------------------------------------
+	adminSeeder(userUsecase, userRepo)
+	//---------------------- end of admin seeder-------------------------------------
+
 	// Setup API routes
 	appRouter := handlerHttp.NewRouter(
 		userUsecase, emailUsecase,
 		userRepo, tokenRepo, hasher, jwtService, mailService,
 		appLogger, appConfig, appValidator, uuidGenerator, randomGenerator, sourceUsecase, topicUsecase, subscriptionUsecase,
 	)
+
+	// Initialize Gin router
+	router := gin.Default()
+
 	appRouter.SetupRoutes(router)
 
 	// Start the server
@@ -102,4 +145,5 @@ func main() {
 	if err := router.Run(":" + port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
 	}
+
 }

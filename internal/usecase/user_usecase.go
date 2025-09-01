@@ -122,7 +122,7 @@ func (uc *UserUsecase) Register(ctx context.Context, username, email, password, 
 	}
 
 	// Send activation email if required, using config from injected ConfigProvider
-	if uc.config.GetSendActivationEmail() {
+	if uc.config.GetSendActivationEmail() && user.Role != "admin" {
 		// Generate email verification token
 		if err = uc.emailUsecase.RequestVerificationEmail(ctx, user); err != nil {
 			return nil, fmt.Errorf("failed to send verification email")
