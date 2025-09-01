@@ -23,8 +23,8 @@ func NewSourceHandler(sourceUC contract.ISourceUsecase, uuidGen contract.IUUIDGe
 
 // CreateSource handles the POST /v1
 func (h *SourceHandler) CreateSource(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists || userID != "admin" {
+	role, exists := c.Get("role")
+	if !exists || role != "admin" {
 		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "Forbidden: Admins only"})
 		return
 	}
