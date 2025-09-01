@@ -27,7 +27,11 @@ func (uc *sourceUsecase) CreateSource(ctx context.Context, source *entity.Source
 		return errors.New("source slug cannot be empty")
 	}
 
-	if exists, _ := uc.sourceRepo.CheckSlugExists(ctx, source.Slug); exists {
+	exists, err := uc.sourceRepo.CheckSlugExists(ctx, source.Slug)
+	if err != nil {
+		return errors.New("could not validate source slug")
+	}
+	if exists {
 		return errors.New("source with slug already exists")
 	}
 
