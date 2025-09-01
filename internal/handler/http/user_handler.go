@@ -62,7 +62,7 @@ func (h *UserHandler) Login(c *gin.Context) {
 
 	user, accessToken, refreshToken, err := h.userUsecase.Login(c.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		ErrorHandler(c, http.StatusUnauthorized, "Invalid credentials or unverified email")
+		ErrorHandler(c, http.StatusUnauthorized, "Invalid credentials or unverified email: "+err.Error())
 		return
 	}
 

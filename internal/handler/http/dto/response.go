@@ -13,8 +13,6 @@ type UserResponse struct {
 	Fullname    string         `json:"fullname"`
 	Email       string         `json:"email"`
 	Role        string         `json:"role"`
-	FirstName   *string        `json:"first_name"`
-	LastName    *string        `json:"last_name"`
 	AvatarURL   *string        `json:"avatar_url"`
 	CreatedAt   string         `json:"created_at"`
 	Preferences PreferencesDTO `json:"preferences"`
@@ -32,6 +30,7 @@ func ToUserResponse(user entity.User) UserResponse {
 	return UserResponse{
 		ID:        user.ID,
 		Username:  user.Username,
+		Fullname:  user.Fullname,
 		Email:     user.Email,
 		Role:      string(user.Role),
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),

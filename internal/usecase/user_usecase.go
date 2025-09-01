@@ -152,10 +152,11 @@ func (uc *UserUsecase) Login(ctx context.Context, email, password string) (*enti
 		return nil, "", "", errors.New(errInternalServer)
 	}
 
+	// uncommented on sept-1-2025 because user email verification is not mandatory. A decision was made to allow login without email verification
 	// Check if the user's email is active/verified
-	if !user.IsVerified {
-		return nil, "", "", errors.New("account not active. Please verify your email")
-	}
+	// if !user.IsVerified {
+	// 	return nil, "", "", errors.New("account not active. Please verify your email")
+	// }
 
 	// Verify password
 	if err := uc.hasher.ComparePasswordHash(password, user.PasswordHash); err != nil {
