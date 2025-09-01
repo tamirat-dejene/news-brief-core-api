@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/entity"
+	"github.com/RealEskalate/G6-NewsBrief/internal/handler/http/dto"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -66,7 +68,7 @@ func NewUserUsecase(
 var _ contract.IUserUseCase = (*UserUsecase)(nil)
 
 // Register handles user registration.
-func (uc *UserUsecase) Register(ctx context.Context, fullName, email, password string, isVerified bool) (*entity.User, error) {
+func (uc *UserUsecase) Register(ctx context.Context, username, email, password, fullname string) (*entity.User, error) {
 	// Validate input fields using the injected validator
 	if err := uc.validator.ValidateEmail(email); err != nil {
 		return nil, fmt.Errorf("invalid email format: %w", err)
@@ -92,25 +94,16 @@ func (uc *UserUsecase) Register(ctx context.Context, fullName, email, password s
 		return nil, fmt.Errorf("failed to process password")
 	}
 
-	// Store fullName in the FullName field
-	var pFullName *string
-	if fullName != "" {
-		fn := fullName
-		pFullName = &fn
-	}
-
-	// Create new user entity
+	// Create new user entity, initializing new fields to their zero values or nil
 	user := &entity.User{
 		ID:           uc.uuidGenerator.NewUUID(),
-		Username:     email,
+		Username:     username,
+		Fullname:     fullname,
 		Email:        email,
 		PasswordHash: hashedPassword,
 		Role:         entity.UserRoleUser,
-		IsVerified:   false,
-		AvatarURL:    nil,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
-		FullName:     pFullName,
 	}
 
 	// Save user to database
@@ -119,9 +112,12 @@ func (uc *UserUsecase) Register(ctx context.Context, fullName, email, password s
 		return nil, fmt.Errorf("failed to register user")
 	}
 
-	// Always send activation email after registration
-	if err = uc.emailUsecase.RequestVerificationEmail(ctx, user); err != nil {
-		return nil, fmt.Errorf("failed to send verification email")
+	// Send activation email if required, using config from injected ConfigProvider
+	if uc.config.GetSendActivationEmail() && user.Role != "admin" {
+		// Generate email verification token
+		if err = uc.emailUsecase.RequestVerificationEmail(ctx, user); err != nil {
+			return nil, fmt.Errorf("failed to send verification email")
+		}
 	}
 
 	return user, nil
@@ -147,10 +143,11 @@ func (uc *UserUsecase) Login(ctx context.Context, email, password string) (*enti
 		return nil, "", "", errors.New(errInternalServer)
 	}
 
-	// Require verified email for login
-	if !user.IsVerified {
-		// Allow login but keep is_verified=false so client can prompt for verification
-	}
+	// uncommented on sept-1-2025 because user email verification is not mandatory. A decision was made to allow login without email verification
+	// Check if the user's email is active/verified
+	// if !user.IsVerified {
+	// 	return nil, "", "", errors.New("account not active. Please verify your email")
+	// }
 
 	// Verify password
 	if err := uc.hasher.ComparePasswordHash(password, user.PasswordHash); err != nil {
@@ -489,6 +486,18 @@ func (uc *UserUsecase) UpdateProfile(ctx context.Context, userID string, updates
 
 	uc.logger.Infof("Current user before update: %+v", user)
 
+	if len(updates) == 0 {
+		return user, nil // No updates to apply
+	}
+	// check if the fullname is set to empty string
+	if val, ok := updates["fullname"]; ok {
+		if fullname, isString := val.(string); isString {
+			if len(strings.TrimSpace(fullname)) == 0 {
+				uc.logger.Warnf("User %s is attempting to set fullname to an empty string", userID)
+				return nil, errors.New("fullname cannot be empty")
+			}
+		}
+	}
 	// Check for username uniqueness if username is being updated
 	if val, ok := updates["username"]; ok {
 		if username, isString := val.(string); isString {
@@ -513,12 +522,8 @@ func (uc *UserUsecase) UpdateProfile(ctx context.Context, userID string, updates
 				user.Username = username
 			}
 		case "fullname":
-			if fullName, ok := v.(string); ok {
-				user.FullName = &fullName
-			}
-		case "avatarURL":
-			if avatarURL, ok := v.(string); ok {
-				user.AvatarURL = &avatarURL
+			if fullname, ok := v.(string); ok {
+				user.Fullname = fullname
 			}
 		}
 	}
@@ -542,7 +547,7 @@ func (uc *UserUsecase) UpdateProfile(ctx context.Context, userID string, updates
 }
 
 // login with OAuth2
-func (uc *UserUsecase) LoginWithOAuth(ctx context.Context, fullName, email string) (string, string, error) {
+func (uc *UserUsecase) LoginWithOAuth(ctx context.Context, fullname, email string) (string, string, error) {
 	// Check if user with the given email already exists
 	user, err := uc.userRepo.GetUserByEmail(ctx, email)
 	if err != nil && err.Error() != errUserNotFound {
@@ -552,23 +557,16 @@ func (uc *UserUsecase) LoginWithOAuth(ctx context.Context, fullName, email strin
 
 	// If user does not exist, create a new one (auto-verified for OAuth)
 	if user == nil {
-		// Create a new user entity
-		var pFullName *string
-		if fullName != "" {
-			pFullName = &fullName
-		}
-
 		newUser := &entity.User{
 			ID:           uc.uuidGenerator.NewUUID(),
 			Username:     email, // Use email as username for OAuth users
 			Email:        email,
 			PasswordHash: "", // No password for OAuth users
 			Role:         entity.UserRoleUser,
-			IsVerified:   true, // Auto-verify OAuth users
-			AvatarURL:    nil,
+			IsVerified:   true,
 			CreatedAt:    time.Now(),
 			UpdatedAt:    time.Now(),
-			FullName:     pFullName,
+			Fullname:     fullname,
 		}
 
 		// Save the new user to the database
@@ -639,4 +637,25 @@ func (uc *UserUsecase) GetUserByID(ctx context.Context, userID string) (*entity.
 	}
 
 	return user, nil
+}
+
+// UpdatePreferences handles partial updates to a user's preferences object.
+func (uc *UserUsecase) UpdatePreferences(ctx context.Context, userID string, req dto.UpdatePreferencesRequest) (*entity.Preferences, error) {
+	// 1. Fetch the user from the repository.
+	user, err := uc.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		// Error handling for user not found is already handled by GetUserByID.
+		return nil, err
+	}
+	// Note: Topic and subscription updates are handled by their dedicated usecases.
+
+	// 3. Save the updated user object back to the repository.
+	_, err = uc.userRepo.UpdateUser(ctx, user)
+	if err != nil {
+		uc.logger.Errorf("failed to update preferences for user %s: %v", userID, err)
+		return nil, errors.New("failed to update preferences")
+	}
+
+	// 4. Return the updated preferences object to be used in the handler response.
+	return &user.Preferences, nil
 }

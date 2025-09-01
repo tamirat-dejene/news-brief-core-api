@@ -5,14 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
-	"net/url"
-	"os"
-
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"net/http"
+	"os"
 )
 
 type AuthHandler struct {
@@ -60,16 +58,10 @@ func (h *AuthHandler) HandleGoogleLogin(ctx *gin.Context) {
 	b := make([]byte, 16)
 	_, _ = rand.Read(b)
 	oauthStateString := base64.URLEncoding.EncodeToString(b)
-	
-	// Store platform in cookie for later use
-	platform := ctx.Query("platform")
-	domain, secure := h.cookieParams()
-	ctx.SetCookie("oauthState", oauthStateString, 300, "/", domain, secure, true)
-	ctx.SetCookie("oauthPlatform", platform, 300, "/", domain, secure, true)
+	ctx.SetCookie("oauthState", oauthStateString, 300, "/", "", false, true)
 
-	// Generate Google OAuth URL
-	authURL := h.googleOauthConfig().AuthCodeURL(oauthStateString)
-	ctx.Redirect(http.StatusTemporaryRedirect, authURL)
+	url := h.googleOauthConfig().AuthCodeURL(oauthStateString)
+	ctx.Redirect(http.StatusTemporaryRedirect, url)
 }
 
 func (h *AuthHandler) HandleGoogleCallback(ctx *gin.Context) {
@@ -80,14 +72,8 @@ func (h *AuthHandler) HandleGoogleCallback(ctx *gin.Context) {
 		ctx.String(http.StatusUnauthorized, "invalid CSRF state token\n")
 		return
 	}
-	
-	// Get platform from cookie
-	platform, _ := ctx.Cookie("oauthPlatform")
-	
-	// Clear cookies
-	domain, secure := h.cookieParams()
-	ctx.SetCookie("oauthState", "", -1, "/", domain, secure, true)
-	ctx.SetCookie("oauthPlatform", "", -1, "/", domain, secure, true)
+	cookieSecure := os.Getenv("OAUTH2_SET_COOKIE_SECURE")
+	ctx.SetCookie("oauthState", "", -1, "/", "", cookieSecure == "true", true)
 
 	code := ctx.Query("code")
 	if code == "" {
@@ -116,12 +102,9 @@ func (h *AuthHandler) HandleGoogleCallback(ctx *gin.Context) {
 		ctx.String(http.StatusInternalServerError, fmt.Sprintf("Failed to decode user info: %v\n", err))
 		return
 	}
+	fullname := userInfo.Name
 
-	// Use the full name directly instead of splitting
-	fullName := userInfo.Name
-	if fullName == "" {
-		fullName = userInfo.Email // Fallback to email if name is empty
-	}
+	accessToken, refreshToken, err := h.UserUseCase.LoginWithOAuth(requestCtx, fullname, userInfo.Email)
 
 	accessToken, refreshToken, err := h.UserUseCase.LoginWithOAuth(requestCtx, fullName, userInfo.Email)
 	if err != nil {
@@ -177,8 +160,8 @@ func (h *AuthHandler) HandleGoogleCallback(ctx *gin.Context) {
 	// Fallback: return JSON if no frontend URL is configured
 	ctx.JSON(http.StatusOK, gin.H{
 		"message":       "login successful",
-		"access_token":  accessToken,
-		"refresh_token": refreshToken,
-		"platform":      "web",
+
+		"access token":  accessToken,
+		"refresh token": refreshToken,
 	})
 }

@@ -11,6 +11,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type MongoUserRepository struct {
@@ -112,4 +113,66 @@ func (r *MongoUserRepository) DeleteUser(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to fetch user with id:%s", id)
 	}
 	return nil
+}
+
+// AddSubscription adds a source key to the user's embedded list of subscriptions.
+// It uses $addToSet to automatically prevent duplicates.
+func (r *MongoUserRepository) AddSubscription(ctx context.Context, id string, sourceKey string) error {
+	filter := bson.M{"_id": id}
+	update := bson.M{
+		"$addToSet": bson.M{"preferences.subscribed_sources": sourceKey},
+	}
+
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}
+
+// RemoveSubscription removes a source key from the user's embedded list of subscriptions.
+func (r *MongoUserRepository) RemoveSubscription(ctx context.Context, id string, sourceKey string) error {
+	filter := bson.M{"_id": id}
+	update := bson.M{
+		"$pull": bson.M{"preferences.subscribed_sources": sourceKey},
+	}
+
+	result, err := r.collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+
+	if result.MatchedCount == 0 {
+		return errors.New("user not found")
+	}
+	return nil
+}
+
+// GetSubscriptions retrieves only the list of subscribed source keys for a user.
+// This uses a projection for efficiency, so the entire user document is not fetched.
+func (r *MongoUserRepository) GetSubscriptions(ctx context.Context, id string) ([]string, error) {
+	// Local struct for decoding only the field we need.
+	var result struct {
+		Preferences struct {
+			SubscribedSources []string `bson:"subscribed_sources"`
+		} `bson:"preferences"`
+	}
+
+	filter := bson.M{"_id": id}
+	projection := bson.M{"preferences.subscribed_sources": 1, "_id": 0}
+	opts := options.FindOne().SetProjection(projection)
+
+	if err := r.collection.FindOne(ctx, filter, opts).Decode(&result); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	// Return an empty slice if the field is null or missing, which is the correct behavior.
+	return result.Preferences.SubscribedSources, nil
 }
