@@ -10,7 +10,7 @@ import (
 	"github.com/RealEskalate/G6-NewsBrief/internal/handler/http/dto"
 )
 
-// SeedAdminUsingUC creates an admin via UserUsecase.Register, then clears topics/subscriptions (nil)
+// SeedAdminUsingUC creates an admin via UserUsecase.Register, then sets topics/subscriptions to nil (Go nil slice, not empty slice)
 // and ensures the role is admin. Safe to run multiple times.
 func SeedAdminUsingUC(
 	ctx context.Context,
