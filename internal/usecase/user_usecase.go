@@ -80,7 +80,7 @@ func (uc *UserUsecase) Register(ctx context.Context, username, email, password, 
 		return nil, fmt.Errorf("weak password: %w", err)
 	}
 
-	// Check if user with same username or email already exists
+	// Check if user with same email already exists
 	existingUserByEmail, err := uc.userRepo.GetUserByEmail(ctx, email)
 	if err != nil && err.Error() != errUserNotFound {
 		uc.logger.Errorf("failed to check for existing user by email: %v", err)
@@ -88,15 +88,6 @@ func (uc *UserUsecase) Register(ctx context.Context, username, email, password, 
 	}
 	if existingUserByEmail != nil {
 		return nil, fmt.Errorf("user with email %s already exists", email)
-	}
-
-	existingUserByUsername, err := uc.userRepo.GetUserByUsername(ctx, username)
-	if err != nil && err.Error() != errUserNotFound {
-		uc.logger.Errorf("failed to check for existing user by username: %v", err)
-		return nil, errors.New(errInternalServer)
-	}
-	if existingUserByUsername != nil {
-		return nil, fmt.Errorf("user with username %s already exists", username)
 	}
 
 	// Hash the password
@@ -335,6 +326,7 @@ func (uc *UserUsecase) ForgotPassword(ctx context.Context, email string) error {
 		UserID:    user.ID,
 		TokenType: entity.TokenTypePasswordReset,
 		TokenHash: string(hashedResetToken),
+		Verifier:  verifier,
 		ExpiresAt: time.Now().Add(uc.config.GetPasswordResetTokenExpiry()),
 		CreatedAt: time.Now(),
 		Revoke:    false,
@@ -344,9 +336,14 @@ func (uc *UserUsecase) ForgotPassword(ctx context.Context, email string) error {
 		return errors.New("failed to initiate password reset")
 	}
 
-	// The reset link should use the unhashed token
+	// The reset link should use the frontend URL directly
 	emailSubject := "Password Reset Request"
-	resetLink := fmt.Sprintf("%s/reset-password?verifier=%s&token=%s", uc.config.GetAppBaseURL(), verifier, resetToken)
+	frontendURL := uc.config.GetFrontendBaseURL()
+	if frontendURL == "" {
+		uc.logger.Errorf("Frontend URL not configured for password reset email")
+		return errors.New("frontend URL not configured")
+	}
+	resetLink := fmt.Sprintf("%s/reset-password?verifier=%s&token=%s", frontendURL, verifier, resetToken)
 	emailBody := fmt.Sprintf("Hi %s,\n\nYou have requested to reset your password. Please click the following link to reset your password: %s\n\nIf you did not request this, please ignore this email.\n\nThanks,\nThe Team", user.Username, resetLink)
 
 	if err := uc.mailService.SendEmail(ctx, user.Email, emailSubject, emailBody); err != nil {
@@ -567,11 +564,11 @@ func (uc *UserUsecase) LoginWithOAuth(ctx context.Context, fullname, email strin
 		return "", "", errors.New(errInternalServer)
 	}
 
-	// If user does not exist, create a new one
+	// If user does not exist, create a new one (auto-verified for OAuth)
 	if user == nil {
 		newUser := &entity.User{
 			ID:           uc.uuidGenerator.NewUUID(),
-			Username:     email, // Or generate a unique username
+			Username:     email, // Use email as username for OAuth users
 			Email:        email,
 			PasswordHash: "", // No password for OAuth users
 			Role:         entity.UserRoleUser,
@@ -589,7 +586,17 @@ func (uc *UserUsecase) LoginWithOAuth(ctx context.Context, fullname, email strin
 		user = newUser
 	}
 
-	// At this point, we have a user (either existing or newly created)
+	// Require email verification for OAuth sign-in as well
+	if !user.IsVerified {
+		// Auto-verify Google users
+		user.IsVerified = true
+		if _, err := uc.userRepo.UpdateUser(ctx, user); err != nil {
+			uc.logger.Errorf("failed to mark oauth user verified: %v", err)
+			return "", "", errors.New("failed to verify oauth user")
+		}
+	}
+
+	// At this point, we have a verified user
 	// Generate access and refresh tokens
 	accessToken, err := uc.jwtService.GenerateAccessToken(user.ID, user.Role)
 	if err != nil {

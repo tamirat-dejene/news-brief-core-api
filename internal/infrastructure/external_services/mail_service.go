@@ -1,56 +1,103 @@
 package external_services
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
-	"net/smtp"
+	"net/http"
+	"time"
 
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
 )
 
-// smtp attribute
+// EmailService implements sending emails via SendGrid API
+// API docs: https://docs.sendgrid.com/api-reference/mail-send/mail-send
+// Minimal plain-text implementation.
 type EmailService struct {
-	Host        string
-	Port        string
-	Username    string
-	AppPassword string
-	From        string
+	APIKey   string
+	From     string
+	FromName string
+	client   *http.Client
 }
 
-// EmailService factory
-func NewEmailService(host, port, username, appPassword, from string) *EmailService {
+// NewEmailService creates a SendGrid email service client.
+func NewEmailService(apiKey, from, fromName string) *EmailService {
 	return &EmailService{
-		Host:        host,
-		Port:        port,
-		Username:    username,
-		AppPassword: appPassword,
-		From:        from,
+		APIKey:   apiKey,
+		From:     from,
+		FromName: fromName,
+		client: &http.Client{
+			Timeout: 15 * time.Second,
+		},
 	}
 }
 
-// make sure EmailService implements contract.IEmailService.go
 var _ contract.IEmailService = (*EmailService)(nil)
 
-// send email method
+// sendgridRequest models the JSON payload for SendGrid mail send
+type sendgridRequest struct {
+	Personalizations []struct {
+		To      []struct{ Email string `json:"email"` } `json:"to"`
+		Subject string                               `json:"subject"`
+	} `json:"personalizations"`
+	From struct {
+		Email string `json:"email"`
+		Name  string `json:"name,omitempty"`
+	} `json:"from"`
+	Content []struct {
+		Type  string `json:"type"`
+		Value string `json:"value"`
+	} `json:"content"`
+}
+
 func (es *EmailService) SendEmail(ctx context.Context, to, subject, body string) error {
-	// write the msg header
-	msg := []byte(
-		fmt.Sprintf(
-			"To: %s\r\n"+
-				"From: %s\r\n"+
-				"Subject: %s\r\n"+
-				"\r\n"+
-				"%s\r\n",
-			to, es.From, subject, body,
-		),
-	)
-	// smtp auth
-	auth := smtp.PlainAuth("", es.Username, es.AppPassword, es.Host)
-	// send address
-	addr := fmt.Sprintf("%s:%s", es.Host, es.Port)
-	err := smtp.SendMail(addr, auth, es.From, []string{to}, msg)
+	if es.APIKey == "" {
+		return fmt.Errorf("sendgrid api key is not configured")
+	}
+	if es.From == "" {
+		return fmt.Errorf("email from address is not configured")
+	}
+
+	payload := sendgridRequest{}
+	p := struct {
+		To      []struct{ Email string `json:"email"` } `json:"to"`
+		Subject string                               `json:"subject"`
+	}{}
+	p.To = []struct{ Email string `json:"email"` }{{Email: to}}
+	p.Subject = subject
+	payload.Personalizations = []struct {
+		To      []struct{ Email string `json:"email"` } `json:"to"`
+		Subject string                               `json:"subject"`
+	}{p}
+	payload.From.Email = es.From
+	payload.From.Name = es.FromName
+	payload.Content = []struct {
+		Type  string `json:"type"`
+		Value string `json:"value"`
+	}{{Type: "text/plain", Value: body}}
+
+	buf, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to send email via Gmail SMTP: %w", err)
+		return fmt.Errorf("failed to marshal sendgrid payload: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://api.sendgrid.com/v3/mail/send", bytes.NewReader(buf))
+	if err != nil {
+		return fmt.Errorf("failed to create sendgrid request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+es.APIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := es.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("sendgrid request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// SendGrid returns 202 Accepted on success
+	if resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("sendgrid mail send failed: status=%d", resp.StatusCode)
 	}
 	return nil
 }

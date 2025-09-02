@@ -14,6 +14,7 @@ type LoginRequest struct {
 	Password string `json:"password" binding:"required"`
 }
 
+
 // RegisterRequest is the DTO for user registration.
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=32"`

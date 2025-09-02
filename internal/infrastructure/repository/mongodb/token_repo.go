@@ -9,6 +9,7 @@ import (
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/entity"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // ---------- DTO layer ------------------
@@ -87,9 +88,14 @@ func (r *TokenRepository) GetTokenByID(ctx context.Context, id string) (*entity.
 
 // get user by user id
 func (r *TokenRepository) GetTokenByUserID(ctx context.Context, userID string) (*entity.Token, error) {
-	filter := bson.M{"user_id": userID}
+	filter := bson.M{
+		"user_id":    userID,
+		"token_type": string(entity.TokenTypeRefresh),
+		"revoke":     false,
+	}
 	var dto tokenDTO
-	err := r.Collection.FindOne(ctx, filter).Decode(&dto)
+	findOpts := options.FindOne().SetSort(bson.D{{Key: "created_at", Value: -1}})
+	err := r.Collection.FindOne(ctx, filter, findOpts).Decode(&dto)
 	if err != nil {
 		return nil, err
 	}
@@ -159,7 +165,7 @@ func (r *TokenRepository) RevokeAllTokensForUser(ctx context.Context, userID str
 		{Key: "$set", Value: bson.M{"revoke": true}},
 	}
 
-	_, err := r.Collection.UpdateOne(ctx, filter, update)
+	_, err := r.Collection.UpdateMany(ctx, filter, update)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return fmt.Errorf("token not found")

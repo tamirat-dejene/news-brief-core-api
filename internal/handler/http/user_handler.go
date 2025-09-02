@@ -3,6 +3,7 @@ package http
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
@@ -173,17 +174,33 @@ func (h *UserHandler) ResetPassword(c *gin.Context) {
 // RefreshToken handles token refresh
 func (h *UserHandler) RefreshToken(c *gin.Context) {
 	var req dto.RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ErrorHandler(c, http.StatusBadRequest, "Invalid request payload")
+	// Try JSON first, but don't fail early on bind error; we support multiple sources
+	_ = c.ShouldBindJSON(&req)
+
+	token := req.RefreshToken
+	if token == "" {
+		// Try X-Refresh-Token header
+		token = c.GetHeader("X-Refresh-Token")
+	}
+	if token == "" {
+		// Try Authorization: Bearer <token>
+		auth := c.GetHeader("Authorization")
+		if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+			token = strings.TrimSpace(auth[7:])
+		}
+	}
+	if token == "" {
+		// Try cookie
+		if cookie, err := c.Cookie("refresh_token"); err == nil {
+			token = cookie
+		}
+	}
+	if token == "" {
+		ErrorHandler(c, http.StatusBadRequest, "Refresh token required (body.refresh_token or X-Refresh-Token or Authorization Bearer or cookie)")
 		return
 	}
 
-	if req.RefreshToken == "" {
-		ErrorHandler(c, http.StatusBadRequest, "Refresh token required")
-		return
-	}
-
-	newAccessToken, newRefreshToken, err := h.userUsecase.RefreshToken(c.Request.Context(), req.RefreshToken)
+	newAccessToken, newRefreshToken, err := h.userUsecase.RefreshToken(c.Request.Context(), token)
 	if err != nil {
 		ErrorHandler(c, http.StatusUnauthorized, "Invalid or expired refresh token")
 		return
@@ -220,6 +237,7 @@ func updateUserRequestToMap(req dto.UpdateUserRequest) map[string]interface{} {
 	if req.Username != nil {
 		updates["username"] = *req.Username
 	}
+
 	if req.Fullname != nil {
 		updates["fullname"] = *req.Fullname
 	}

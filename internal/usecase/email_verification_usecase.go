@@ -16,17 +16,17 @@ type EmailVerificationUseCase struct {
 	emailService    contract.IEmailService
 	RandomGenerator contract.IRandomGenerator
 	UUIDGenerator   contract.IUUIDGenerator
-	baseURL         string // Add baseURL for config
+	config          contract.IConfigProvider
 }
 
-func NewEmailVerificationUseCase(tr contract.ITokenRepository, ur contract.IUserRepository, es contract.IEmailService, rg contract.IRandomGenerator, uuidgen contract.IUUIDGenerator, baseURL string) *EmailVerificationUseCase {
+func NewEmailVerificationUseCase(tr contract.ITokenRepository, ur contract.IUserRepository, es contract.IEmailService, rg contract.IRandomGenerator, uuidgen contract.IUUIDGenerator, config contract.IConfigProvider) *EmailVerificationUseCase {
 	return &EmailVerificationUseCase{
 		tokenRepository: tr,
 		userRepository:  ur,
 		emailService:    es,
 		RandomGenerator: rg,
 		UUIDGenerator:   uuidgen,
-		baseURL:         baseURL,
+		config:          config,
 	}
 }
 
@@ -60,7 +60,11 @@ func (eu *EmailVerificationUseCase) RequestVerificationEmail(ctx context.Context
 	if err = eu.tokenRepository.CreateToken(ctx, &newToken); err != nil {
 		return fmt.Errorf("failed to create token in db: %w", err)
 	}
-	verificationLink := fmt.Sprintf("%s/api/v1/auth/verify-email?verifier=%s&token=%s", eu.baseURL, verifier, plainToken)
+	frontendURL := eu.config.GetFrontendBaseURL()
+	if frontendURL == "" {
+		return fmt.Errorf("frontend URL not configured for email verification")
+	}
+	verificationLink := fmt.Sprintf("%s/api/v1/auth/verify-email?verifier=%s&token=%s", frontendURL, verifier, plainToken)
 	emailSubject := "Verify your email address"
 	emailBody := fmt.Sprintf("Hello %s\n, please click the following link to verify your email address: %s", user.Username, verificationLink)
 	if err = eu.emailService.SendEmail(ctx, user.Email, emailSubject, emailBody); err != nil {
