@@ -1,9 +1,8 @@
 package dto
 
 import (
-	"time"
-
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/entity"
+	"time"
 )
 
 // UserResponse is the DTO for a user.

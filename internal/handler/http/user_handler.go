@@ -43,13 +43,13 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
-	_, err := h.userUsecase.Register(c.Request.Context(), req.Username, req.Email, req.Password, req.Fullname)
+	user, err := h.userUsecase.Register(c.Request.Context(), req.Username, req.Email, req.Password, req.Fullname)
 	if err != nil {
 		ErrorHandler(c, http.StatusConflict, err.Error())
 		return
 	}
 
-	MessageHandler(c, http.StatusCreated, "User created successfully. Please check your email to verify your account.")
+	SuccessHandler(c, http.StatusCreated, user)
 }
 
 // Login handles user authentication
@@ -185,7 +185,7 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 
 	newAccessToken, newRefreshToken, err := h.userUsecase.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		ErrorHandler(c, http.StatusUnauthorized, "Invalid or expired refresh token")
+		ErrorHandler(c, http.StatusUnauthorized, "Invalid or expired refresh token:"+err.Error())
 		return
 	}
 

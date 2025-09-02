@@ -29,7 +29,8 @@ func AuthMiddleWare(jwtService contract.IJWTService, userUseCase contract.IUserU
 		}
 
 		ctx.Set("userID", claims.UserID)
-		ctx.Set("userRole", claims.Role)
+		// fixed failed type assertion, thus passed in the string version of claims.Role. it wasnt working on source_handler.go in the create source
+		ctx.Set("userRole", string(claims.Role))
 
 		ctx.Next()
 	}

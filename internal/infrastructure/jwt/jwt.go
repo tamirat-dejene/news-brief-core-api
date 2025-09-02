@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/RealEskalate/G6-NewsBrief/internal/domain/contract"
-
 	"github.com/golang-jwt/jwt/v5"
 )
 

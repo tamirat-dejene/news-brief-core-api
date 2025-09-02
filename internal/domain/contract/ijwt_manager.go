@@ -15,5 +15,6 @@ type CustomClaims struct {
 }
 
 type RefreshClaims struct {
+	Role string `json:"role"`
 	jwt.RegisteredClaims
 }

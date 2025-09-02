@@ -22,4 +22,6 @@ type IUserUseCase interface {
 	LoginWithOAuth(ctx context.Context, fullname, email string) (string, string, error)
 	GetUserByID(ctx context.Context, userID string) (*entity.User, error)
 	UpdatePreferences(ctx context.Context, userID string, req dto.UpdatePreferencesRequest) (*entity.Preferences, error)
+	SubscribeTopic(ctx context.Context, userID, topicID string) error
+	GetUserSubscribedTopics(ctx context.Context, userID string) ([]*entity.Topic, error)
 }

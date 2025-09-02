@@ -11,12 +11,14 @@ import (
 
 type TopicHandler struct {
 	topicUsecase contract.ITopicUsecase
+	userUsecase  contract.IUserUseCase
 	uuidGen      contract.IUUIDGenerator
 }
 
-func NewTopicHandler(topicUC contract.ITopicUsecase, uuidGen contract.IUUIDGenerator) *TopicHandler {
+func NewTopicHandler(topicUC contract.ITopicUsecase, userUC contract.IUserUseCase, uuidGen contract.IUUIDGenerator) *TopicHandler {
 	return &TopicHandler{
 		topicUsecase: topicUC,
+		userUsecase:  userUC,
 		uuidGen:      uuidGen,
 	}
 }
@@ -59,4 +61,39 @@ func (h *TopicHandler) GetTopics(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, response)
+}
+
+// add topic for the user
+func (h *TopicHandler) SubscribeTopic(c *gin.Context) {
+	userID := c.GetString("userID")
+	topicID := c.Param("topicID")
+
+	if userID == "" || topicID == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "User ID and Topic ID are required"})
+		return
+	}
+
+	if err := h.userUsecase.SubscribeTopic(c.Request.Context(), userID, topicID); err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to subscribe to topic"})
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.MessageResponse{Message: "Subscribed to topic successfully"})
+}
+
+func (h *TopicHandler) GetUserSubscribedTopics(c *gin.Context) {
+	userID := c.GetString("userID")
+
+	if userID == "" {
+		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: "User ID is required"})
+		return
+	}
+
+	topics, err := h.userUsecase.GetUserSubscribedTopics(c.Request.Context(), userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Error: "Failed to retrieve subscribed topics"})
+		return
+	}
+
+	c.JSON(http.StatusOK, topics)
 }

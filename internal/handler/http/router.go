@@ -29,7 +29,7 @@ func NewRouter(userUsecase contract.IUserUseCase, emailVerUC contract.IEmailVeri
 		emailHandler:        NewEmailHandler(emailVerUC, userRepo),
 		authHandler:         NewAuthHandler(userUsecase, baseURL),
 		sourceHandler:       NewSourceHandler(sourceUC, uuidGen),
-		topicHandler:        NewTopicHandler(topicUC, uuidGen),
+		topicHandler:        NewTopicHandler(topicUC, userUsecase, uuidGen),
 		subscriptionHandler: NewSubscriptionHandler(subscriptionUC),
 		jwtService:          jwtService,
 		userUsecase:         userUsecase,
@@ -53,6 +53,7 @@ func (r *Router) SetupRoutes(router *gin.Engine) {
 
 	// router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	// router.GET("/api/v1/metrics", gin.WrapH(promhttp.Handler()))
+
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 
@@ -61,42 +62,48 @@ func (r *Router) SetupRoutes(router *gin.Engine) {
 	{
 		auth.POST("/register", r.userHandler.CreateUser)
 		auth.POST("/login", r.userHandler.Login)
+		auth.POST("/refresh-token", r.userHandler.RefreshToken)
 		auth.GET("/verify-email", r.emailHandler.HandleVerifyEmailToken)
 		auth.POST("/forgot-password", r.userHandler.ForgotPassword)
 		auth.POST("/reset-password", r.userHandler.ResetPassword)
-		auth.POST("/refresh-token", r.userHandler.RefreshToken)
 		auth.POST("/request-verification-email", r.emailHandler.HandleRequestEmailVerification)
-
 		// Google OAuth endpoints
 		auth.GET("/google/login", r.authHandler.HandleGoogleLogin)
 		auth.GET("/google/callback", r.authHandler.HandleGoogleCallback)
 	}
 
-	// Public user routes
-	users := v1.Group("/users")
+	// Admin routes
+	admin := v1.Group("/admin")
+	admin.Use(middleware.AuthMiddleWare(r.jwtService, r.userUsecase))
 	{
-		users.GET("/profile/:id", r.userHandler.GetUser)
+		// admin routes
+		admin.POST("/create-topics", r.topicHandler.CreateTopic)
+		// admin.POST("/topics/:id", r.topicHandler.UpdateTopic)
+		// admin.DELETE("/topics/:id", r.topicHandler.DeleteTopic)
+		admin.POST("/create-sources", r.sourceHandler.CreateSource)
+		// admin.PUT("/sources/:id", r.sourceHandler.UpdateSource)
+		// admin.DELETE("/sources/:id", r.sourceHandler.DeleteSource)
 	}
 
-	// Protected routes (authentication required)
-	protected := v1.Group("/")
-	protected.Use(middleware.AuthMiddleWare(r.jwtService, r.userUsecase))
+	// user profile routes (authentication required)
+	userProfile := v1.Group("/me")
+	userProfile.Use(middleware.AuthMiddleWare(r.jwtService, r.userUsecase))
 	{
 		// user routes
-		protected.GET("/me", r.userHandler.GetCurrentUser)
-		protected.PUT("/me", r.userHandler.UpdateUser)
-		protected.GET("/me/subscriptions", r.subscriptionHandler.GetSubscriptions)
-		protected.POST("/me/subscriptions", r.subscriptionHandler.AddSubscription)
-		protected.DELETE("/me/subscriptions/:source_slug", r.subscriptionHandler.RemoveSubscription)
-		// admin routes
-		protected.POST("/topics", r.topicHandler.CreateTopic)
-		// protected.POST("/topics/:id", r.topicHandler.UpdateTopic)
-		// protected.DELETE("/topics/:id", r.topicHandler.DeleteTopic)
-		protected.POST("/sources", r.sourceHandler.CreateSource)
-		// protected.PUT("/sources/:id", r.sourceHandler.UpdateSource)
-		// protected.DELETE("/sources/:id", r.sourceHandler.DeleteSource)
+		userProfile.GET("", r.userHandler.GetCurrentUser)
+		userProfile.PUT("", r.userHandler.UpdateUser)
+		userProfile.GET("/subscriptions", r.subscriptionHandler.GetSubscriptions)
+		userProfile.POST("/subscriptions", r.subscriptionHandler.AddSubscription)
+		userProfile.DELETE("/subscriptions/:source_slug", r.subscriptionHandler.RemoveSubscription)
+		userProfile.GET("/topics", r.topicHandler.SubscribeTopic)
+		userProfile.GET("/subscribed-topics", r.topicHandler.GetUserSubscribedTopics)
 	}
-
+	// public api
+	public := v1.Group("")
+	{
+		public.GET("/topics", r.topicHandler.GetTopics)
+		public.GET("/sources", r.sourceHandler.GetSources)
+	}
 	// Logout route (no authentication required just accept the refresh token from the request body and invalidate the user session)
 	v1.POST("/logout", r.userHandler.Logout)
 }

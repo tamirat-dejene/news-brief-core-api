@@ -49,6 +49,7 @@ func (a *JWTServiceAdapter) ParseRefreshToken(tokenStr string) (*entity.Claims, 
 	}
 	return &entity.Claims{
 		UserID:           customClaims.Subject,
+		Role:             entity.UserRole(customClaims.Role),
 		RegisteredClaims: customClaims.RegisteredClaims,
 	}, nil
 }

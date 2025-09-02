@@ -98,6 +98,19 @@ func (r *TokenRepository) GetTokenByUserID(ctx context.Context, userID string) (
 	return token, nil
 }
 
+// get token by user id and token type
+func (r *TokenRepository) GetTokenByUserIDWithOpts(ctx context.Context, userID string, tokenType string) (*entity.Token, error) {
+	filter := bson.M{"user_id": userID, "token_type": tokenType, "revoke": false}
+	var dto tokenDTO
+	err := r.Collection.FindOne(ctx, filter).Decode(&dto)
+	if err != nil {
+		return nil, err
+	}
+	token := dto.ToEntity()
+
+	return token, nil
+}
+
 // UpdateToken updates the token hash and expiry
 func (r *TokenRepository) UpdateToken(ctx context.Context, tokenID string, tokenHash string, expiry time.Time) error {
 	filter := bson.M{"_id": tokenID}

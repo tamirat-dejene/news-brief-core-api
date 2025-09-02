@@ -24,6 +24,7 @@ const (
 type UserUsecase struct {
 	userRepo        contract.IUserRepository
 	tokenRepo       contract.ITokenRepository
+	topicRepo       contract.ITopicRepository
 	emailUsecase    contract.IEmailVerificationUC
 	hasher          contract.IHasher
 	jwtService      contract.IJWTService
@@ -39,6 +40,7 @@ type UserUsecase struct {
 func NewUserUsecase(
 	userRepo contract.IUserRepository,
 	tokenRepo contract.ITokenRepository,
+	topicRepo contract.ITopicRepository,
 	emailUC contract.IEmailVerificationUC,
 	hasher contract.IHasher,
 	jwtService contract.IJWTService,
@@ -52,6 +54,7 @@ func NewUserUsecase(
 	return &UserUsecase{
 		userRepo:        userRepo,
 		tokenRepo:       tokenRepo,
+		topicRepo:       topicRepo,
 		emailUsecase:    emailUC,
 		hasher:          hasher,
 		jwtService:      jwtService,
@@ -192,7 +195,13 @@ func (uc *UserUsecase) Login(ctx context.Context, email, password string) (*enti
 		CreatedAt: time.Now(),
 		Revoke:    false,
 	}
-	if err := uc.tokenRepo.CreateToken(ctx, tokenEntity); err != nil {
+
+	if foundToken, err := uc.tokenRepo.GetTokenByUserIDWithOpts(ctx, user.ID, string(entity.TokenTypeRefresh)); err == nil {
+		if err := uc.tokenRepo.UpdateToken(ctx, foundToken.ID, tokenEntity.TokenHash, tokenEntity.ExpiresAt); err != nil {
+			uc.logger.Errorf("failed to update refresh token for user %s: %v", user.ID, err)
+			return nil, "", "", errors.New("failed to store token")
+		}
+	} else if err := uc.tokenRepo.CreateToken(ctx, tokenEntity); err != nil {
 		uc.logger.Errorf("failed to store refresh token for user %s: %v", user.ID, err)
 		return nil, "", "", errors.New("failed to store token")
 	}
@@ -236,7 +245,7 @@ func (uc *UserUsecase) RefreshToken(ctx context.Context, refreshToken string) (s
 
 	// Retrieve the stored token using the parsed UUID.
 	uc.logger.Infof("Debug: Looking up stored token for user: %s", userID)
-	storedToken, err := uc.tokenRepo.GetTokenByUserID(ctx, userID)
+	storedToken, err := uc.tokenRepo.GetTokenByUserIDWithOpts(ctx, userID, string(entity.TokenTypeRefresh))
 	if err != nil {
 		uc.logger.Errorf("Debug: Failed to retrieve stored token: %v", err)
 		if err.Error() == "token not found" {
@@ -246,7 +255,7 @@ func (uc *UserUsecase) RefreshToken(ctx context.Context, refreshToken string) (s
 		return "", "", errors.New(errInternalServer)
 	}
 	uc.logger.Infof("Debug: Found stored token with hash length: %d", len(storedToken.TokenHash))
-
+	fmt.Printf("Debug: Stored token details: %+v\n", storedToken)
 	// Check if the token has been revoked.
 	if storedToken.Revoke {
 		return "", "", errors.New("refresh token has been revoked, please log in again")
@@ -651,4 +660,36 @@ func (uc *UserUsecase) UpdatePreferences(ctx context.Context, userID string, req
 
 	// 4. Return the updated preferences object to be used in the handler response.
 	return &user.Preferences, nil
+}
+
+func (uc *UserUsecase) SubscribeTopic(ctx context.Context, userID, topicID string) error {
+	if userID == "" || topicID == "" {
+		return errors.New("user ID and topic ID are required")
+	}
+	if _, err := uc.topicRepo.GetTopicByID(ctx, topicID); err != nil {
+		return errors.New("topic not found")
+	}
+	if _, err := uc.userRepo.GetUserByID(ctx, userID); err != nil {
+		return errors.New("user not found")
+	}
+
+	if err := uc.userRepo.SubscribeTopic(ctx, userID, topicID); err != nil {
+		return errors.New("failed to subscribe user to topic")
+	}
+	return nil
+}
+
+func (uc *UserUsecase) GetUserSubscribedTopics(ctx context.Context, userID string) ([]*entity.Topic, error) {
+	if userID == "" {
+		return nil, errors.New("user ID is required")
+	}
+	result, err := uc.userRepo.GetUserSubscribedTopicsByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	userTopics, err := uc.topicRepo.GetUserSubscribedTopics(ctx, result)
+	if err != nil {
+		return nil, err
+	}
+	return userTopics, nil
 }

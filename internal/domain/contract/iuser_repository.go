@@ -25,4 +25,6 @@ type IUserRepository interface {
 	RemoveSubscription(ctx context.Context, userID string, sourceKey string) error
 	// GetSubscriptions retrieves the list of subscribed source keys for a user.
 	GetSubscriptions(ctx context.Context, userID string) ([]string, error)
+	SubscribeTopic(ctx context.Context, userID, topicID string) error
+	GetUserSubscribedTopicsByID(ctx context.Context, userID string) ([]string, error)
 }

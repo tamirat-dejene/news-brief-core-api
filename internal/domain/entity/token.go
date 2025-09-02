@@ -2,9 +2,8 @@ package entity
 
 import (
 	"fmt"
-	"time"
-
 	"github.com/golang-jwt/jwt/v5"
+	"time"
 )
 
 // Token represents an authentication token (access or refresh)
