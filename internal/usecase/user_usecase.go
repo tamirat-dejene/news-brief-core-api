@@ -255,7 +255,7 @@ func (uc *UserUsecase) RefreshToken(ctx context.Context, refreshToken string) (s
 		return "", "", errors.New(errInternalServer)
 	}
 	uc.logger.Infof("Debug: Found stored token with hash length: %d", len(storedToken.TokenHash))
-	fmt.Printf("Debug: Stored token details: %+v\n", storedToken)
+	uc.logger.Debugf("Stored token details: %+v", storedToken)
 	// Check if the token has been revoked.
 	if storedToken.Revoke {
 		return "", "", errors.New("refresh token has been revoked, please log in again")
