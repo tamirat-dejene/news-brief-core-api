@@ -20,17 +20,8 @@ type Router struct {
 	subscriptionHandler *SubscriptionHandler
 	userUsecase         contract.IUserUseCase
 	jwtService          contract.IJWTService
-	userHandler         *UserHandler
-	emailHandler        *EmailHandler
-	authHandler         *AuthHandler
-	sourceHandler       *SourceHandler
-	topicHandler        *TopicHandler
-	subscriptionHandler *SubscriptionHandler
-	userUsecase         contract.IUserUseCase
-	jwtService          contract.IJWTService
 }
 
-func NewRouter(userUsecase contract.IUserUseCase, emailVerUC contract.IEmailVerificationUC, userRepo contract.IUserRepository, tokenRepo contract.ITokenRepository, hasher contract.IHasher, jwtService contract.IJWTService, mailService contract.IEmailService, logger contract.IAppLogger, config contract.IConfigProvider, validator contract.IValidator, uuidGen contract.IUUIDGenerator, randomGen contract.IRandomGenerator, sourceUC contract.ISourceUsecase, topicUC contract.ITopicUsecase, subscriptionUC contract.ISubscriptionUsecase) *Router {
 func NewRouter(userUsecase contract.IUserUseCase, emailVerUC contract.IEmailVerificationUC, userRepo contract.IUserRepository, tokenRepo contract.ITokenRepository, hasher contract.IHasher, jwtService contract.IJWTService, mailService contract.IEmailService, logger contract.IAppLogger, config contract.IConfigProvider, validator contract.IValidator, uuidGen contract.IUUIDGenerator, randomGen contract.IRandomGenerator, sourceUC contract.ISourceUsecase, topicUC contract.ITopicUsecase, subscriptionUC contract.ISubscriptionUsecase) *Router {
 	baseURL := config.GetAppBaseURL()
 	return &Router{
@@ -49,7 +40,6 @@ func (r *Router) SetupRoutes(router *gin.Engine) {
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "Accept"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
@@ -63,8 +53,6 @@ func (r *Router) SetupRoutes(router *gin.Engine) {
 
 	// router.GET("/metrics", gin.WrapH(promhttp.Handler()))
 	// router.GET("/api/v1/metrics", gin.WrapH(promhttp.Handler()))
-	// API docs
-	// RegisterDocsRoutes(router)
 
 	// API v1 routes
 	v1 := router.Group("/api/v1")
