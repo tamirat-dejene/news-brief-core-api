@@ -185,7 +185,7 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 
 	newAccessToken, newRefreshToken, err := h.userUsecase.RefreshToken(c.Request.Context(), req.RefreshToken)
 	if err != nil {
-		ErrorHandler(c, http.StatusUnauthorized, "Invalid or expired refresh token:"+err.Error())
+		ErrorHandler(c, http.StatusUnauthorized, "Invalid or expired refresh token")
 		return
 	}
 
