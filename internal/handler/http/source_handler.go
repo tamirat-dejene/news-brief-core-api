@@ -26,16 +26,12 @@ func NewSourceHandler(sourceUC contract.ISourceUsecase, uuidGen contract.IUUIDGe
 // CreateSource handles the POST /v1
 func (h *SourceHandler) CreateSource(c *gin.Context) {
 	userRole, exists := c.Get("userRole")
-	fmt.Printf("User role from context: %v, exists: %v\n", userRole, exists) // Debugging line
 	if !exists {
 		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "Forbidden: Admins only"})
 		return
 	}
 	userRoleStr, ok := userRole.(string)
-	fmt.Printf("userRole type: %T, value: %#v\n", userRole, userRole)
-	fmt.Printf("userRoleStr type: %T, value: %#v\n", userRoleStr, userRoleStr)
 	if !ok || strings.TrimSpace(userRoleStr) != "admin" {
-		fmt.Printf("%v, %v, %v, %v \n", exists, ok, strings.TrimSpace(userRoleStr) != "admin", userRole) // Debugging line
 		c.JSON(http.StatusForbidden, dto.ErrorResponse{Error: "Forbidden: Admins only"})
 		return
 	}
